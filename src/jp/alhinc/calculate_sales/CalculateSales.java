@@ -24,6 +24,8 @@ public class CalculateSales {
 	private static final String UNKNOWN_ERROR = "予期せぬエラーが発生しました";
 	private static final String FILE_NOT_EXIST = "支店定義ファイルが存在しません";
 	private static final String FILE_INVALID_FORMAT = "支店定義ファイルのフォーマットが不正です";
+	// 正規表現パターン
+	private static final String REGREX = "^[0-9]{8}\\.rcd$";
 
 	/**
 	 * メインメソッド
@@ -49,20 +51,19 @@ public class CalculateSales {
 		//先にファイルの情報を格納する List(ArrayList) を宣⾔します。
 		List<File> rcdFiles = new ArrayList<>();
 
+
 		//filesの数だけ繰り返すことで、
 		//指定したパスに存在する全てのファイル(または、ディレクトリ)の数だけ繰り返されます。
 		for(int i = 0; i < files.length ; i++) {
-			// 正規表現パターン
-	        String regex = "^[0-9]{8}\\.rcd$";
 			//matches を使⽤してファイル名が「数字8桁.rcd」なのか判定します。
-			if(files[i].getName().matches(regex)) {
-				rcdFiles.add(i,files[i]);
+			if(files[i].getName().matches(REGREX)) {
+				rcdFiles.add(files[i]);
 			}
 
 		}
 
 		//rcdFilesに複数の売上ファイルの情報を格納しているので、その数だけ繰り返します。
-		for(int j = 0; j < rcdFiles.size(); j++) {
+		for(int i = 0; i < rcdFiles.size(); i++) {
 
 			//支店定義ファイル読み込み(readFileメソッド)を参考に売上ファイルの中身を読み込みます。
 			//売上ファイルの1行目には支店コード、2行目には売上金額が入っています。
@@ -70,28 +71,29 @@ public class CalculateSales {
 			BufferedReader br = null;
 
 			try {
-				File file = new File(args[0], rcdFiles.get(j).getName());
+				File file = new File(args[0], rcdFiles.get(i).getName());
 				FileReader fr = new FileReader(file);
 				br = new BufferedReader(fr);
 
 				String line;
-				// 一行ずつ読み込む
-				while((line = br.readLine()) != null) {
-					//split を使って「,」(カンマ)で分割すると、
-				    //items[0] には支店コード、items[1] には売上金額が格納されます。
-				    String[] items = line.split(",");
-					//売上ファイルから読み込んだ売上金額をMapに加算していくために、型の変換を行います。
-					//※詳細は後述で説明
-					long fileSale = Long.parseLong(items[1]);
+				String code = null;
+				Long saleAmount = null;
+				int count = 1;
 
-					//読み込んだ売上⾦額を加算します。
-					//※詳細は後述で説明
-					Long saleAmount = branchSales.get(items[0]) + fileSale;
-
-					//加算した売上⾦額をMapに追加します。
-					branchSales.put(items[0], saleAmount);
-
+				while ((line = br.readLine()) != null) {
+				    if (count == 1) {
+				        // 1行目の処理
+				    	code = line;
+				    } else if (count == 2) {
+				        // 2行目の処理
+				    	saleAmount = branchSales.get(code) + Long.parseLong(line);
+				    } else {
+				        // それ以降
+				    }
+				    count++;
 				}
+				//加算した売上⾦額をMapに追加します。
+				branchSales.put(code, saleAmount);
 
 			} catch(IOException e) {
 				System.out.println(UNKNOWN_ERROR);
@@ -175,7 +177,13 @@ public class CalculateSales {
 	 */
 	private static boolean writeFile(String path, String fileName, Map<String, String> branchNames, Map<String, Long> branchSales) {
 		// ※ここに書き込み処理を作成してください。(処理内容3-1)
-		try (PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(path + "\\" + fileName)))) {
+		// 3. 便利な書き込みメソッド（printlnなど）を使えるようにする
+		try{
+			// 書き込み処理
+		    // 例外が起きる可能性がある処理をすべてtryで囲む
+		    FileWriter fw = new FileWriter(path + "\\" + fileName);
+		    BufferedWriter bw = new BufferedWriter(fw);
+		    PrintWriter pw = new PrintWriter(bw);
 
 		    // 支店コードの集合でループを回す
 		    for (String code : branchNames.keySet()) {
@@ -187,8 +195,11 @@ public class CalculateSales {
 
 		        // ファイルへ書き込み
 		        pw.println(line);
+
 		    }
 
+	        // 最後に必ず閉じる（これをしないと書き込まれません）
+	        pw.close();
 		} catch (IOException e) {
 		    e.printStackTrace();
 		}
