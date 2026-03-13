@@ -35,7 +35,9 @@ public class CalculateSales {
 	private static final String FILE_INVALID_FORMAT = "のフォーマットが不正です";
 	private static final String FILE_NOT_SERIAL_NAME = "売上ファイル名が連番になっていません";
 	private static final String MAX_SALES_AMOUNT = "合計⾦額が10桁を超えました";
-	private static final String CODE_NOT_EXIST = "の支店コードが不正です";
+	private static final String CODE_NOT_EXIST = "が不正です";
+	private static final String BRANCH_CODE = "の支店コード";
+	private static final String ITEM_CODE = "の商品コード";
 	private static final String SALESFILE_INVALID_FORMAT = "のフォーマットが不正です";
 	// 正規表現パターン
 	private static final String REGREX = "^[0-9]{8}\\.rcd$";
@@ -61,8 +63,8 @@ public class CalculateSales {
 		// 支店コードと売上金額を保持するMap
 		Map<String, Long> branchSales = new HashMap<>();
 
-		// 支店定義ファイル読み込み処理
-		if (!readFile(args[0], FILE_NAME_BRANCH_LST, branchNames, branchSales)) {
+		// 支店定義ファイル読み込み処理→指摘1:正規表現渡す
+		if (!readFile(args[0], FILE_NAME_BRANCH_LST, branchNames, branchSales, BRANCH_FILE, CORE_REGREX)) {
 			return;
 		}
 
@@ -72,7 +74,7 @@ public class CalculateSales {
 		Map<String, Long> itemSales = new HashMap<>();
 
 		// 商品定義ファイル読み込み処理
-		if (!readFile(args[0], FILE_NAME_ITEM_LST, itemNames, itemSales)) {
+		if (!readFile(args[0], FILE_NAME_ITEM_LST, itemNames, itemSales, ITEM_FILE, ITEM_REGREX)) {
 			return;
 		}
 		// ※ここから集計処理を作成してください。(処理内容2-1、2-2)
@@ -147,7 +149,7 @@ public class CalculateSales {
 				if (!branchNames.containsKey(branchCd)) {
 					//⽀店情報を保持しているMapに売上ファイルの⽀店コードが存在しなかった場合は、
 					//エラーメッセージをコンソールに表⽰します。
-					System.out.println(rcdFiles.get(i).getName() + CODE_NOT_EXIST);
+					System.out.println(rcdFiles.get(i).getName() + BRANCH_CODE + CODE_NOT_EXIST);
 					return;
 				}
 
@@ -160,14 +162,19 @@ public class CalculateSales {
 					return;
 				}
 
-				// 商品コード
+				// 商品コード→指摘2:存在チェックが抜けてる
 				String itemCd = fileContents.get(1);
-
+				if (!itemNames.containsKey(itemCd)) {
+					//⽀店情報を保持しているMapに売上ファイルの商品コードが存在しなかった場合は、
+					//エラーメッセージをコンソールに表⽰します。
+					System.out.println(rcdFiles.get(i).getName() + ITEM_CODE + CODE_NOT_EXIST);
+					return;
+				}
 				// 集計ファイルにそれぞれ金額を集計する
 				Long saleAmount = branchSales.get(branchCd) + Long.parseLong(amount);
 				Long itemAmount = itemSales.get(itemCd) + Long.parseLong(amount);
 
-				if (saleAmount >= 10000000000L) {
+				if (saleAmount >= 10000000000L || itemAmount >= 10000000000L) {//指摘3
 					//売上⾦額が11桁以上の場合、エラーメッセージをコンソールに表⽰します。
 					System.out.println(MAX_SALES_AMOUNT);
 					return;
@@ -216,7 +223,7 @@ public class CalculateSales {
 	 * @return 読み込み可否
 	 */
 	private static boolean readFile(String path, String fileName, Map<String, String> branchNames,
-			Map<String, Long> branchSales) {
+			Map<String, Long> branchSales, String errorFileName, String regrex) {//指摘4:引数に定数を渡す
 		BufferedReader br = null;
 
 		try {
@@ -224,13 +231,9 @@ public class CalculateSales {
 			// エラー処理1
 			if (!file.exists()) {
 				//定義ファイルが存在しない場合、コンソールにエラーメッセージを表⽰します。
-				if (fileName == FILE_NAME_BRANCH_LST) {
-					System.out.println(BRANCH_FILE + FILE_NOT_EXIST);
-				} else if (fileName == FILE_NAME_ITEM_LST) {
-					System.out.println(ITEM_FILE + FILE_NOT_EXIST);
-				} else {
-					System.out.println(UNKNOWN_ERROR);
-				}
+
+				System.out.println(errorFileName + FILE_NOT_EXIST);
+
 				return false;
 			}
 			FileReader fr = new FileReader(file);
@@ -245,22 +248,13 @@ public class CalculateSales {
 				String[] items = line.split(",");
 
 				// エラー処理1
-				if (fileName == FILE_NAME_BRANCH_LST) {
-					if (items.length != 2 || !items[0].matches(CORE_REGREX)) {
-						//支店定義ファイルの仕様が満たされていない場合、
-						//エラーメッセージをコンソールに表⽰します。
-						System.out.println(BRANCH_FILE + FILE_INVALID_FORMAT);
-						return false;
-					}
+				if (items.length != 2 || !items[0].matches(regrex)) {
+					//支店定義ファイルの仕様が満たされていない場合、
+					//エラーメッセージをコンソールに表⽰します。
+					System.out.println(errorFileName + FILE_INVALID_FORMAT);
+					return false;
 				}
-				if (fileName == FILE_NAME_ITEM_LST) {
-					if (items.length != 2 || !items[0].matches(ITEM_REGREX)) {
-						//商品定義ファイルの仕様が満たされていない場合、
-						//エラーメッセージをコンソールに表⽰します。
-						System.out.println(ITEM_FILE + FILE_INVALID_FORMAT);
-						return false;
-					}
-				}
+
 				//Mapに追加する2つの情報を putの引数として指定します。
 				branchNames.put(items[0], items[1]);
 				branchSales.put(items[0], 0L);
