@@ -153,6 +153,15 @@ public class CalculateSales {
 					return;
 				}
 
+				// 商品コード→指摘2:存在チェックが抜けてる
+				String itemCd = fileContents.get(1);
+				if (!itemNames.containsKey(itemCd)) {
+					//⽀店情報を保持しているMapに売上ファイルの商品コードが存在しなかった場合は、
+					//エラーメッセージをコンソールに表⽰します。
+					System.out.println(rcdFiles.get(i).getName() + ITEM_CODE + CODE_NOT_EXIST);
+					return;
+				}
+
 				// 金額
 				String amount = fileContents.get(2);
 				if (!amount.matches(NUMBER_REGREX)) {
@@ -162,14 +171,6 @@ public class CalculateSales {
 					return;
 				}
 
-				// 商品コード→指摘2:存在チェックが抜けてる
-				String itemCd = fileContents.get(1);
-				if (!itemNames.containsKey(itemCd)) {
-					//⽀店情報を保持しているMapに売上ファイルの商品コードが存在しなかった場合は、
-					//エラーメッセージをコンソールに表⽰します。
-					System.out.println(rcdFiles.get(i).getName() + ITEM_CODE + CODE_NOT_EXIST);
-					return;
-				}
 				// 集計ファイルにそれぞれ金額を集計する
 				Long saleAmount = branchSales.get(branchCd) + Long.parseLong(amount);
 				Long itemAmount = itemSales.get(itemCd) + Long.parseLong(amount);
@@ -220,6 +221,8 @@ public class CalculateSales {
 	 * @param ファイル名
 	 * @param 支店・商品コードと支店・商品名を保持するMap
 	 * @param 支店・商品コードと売上金額を保持するMap
+	 * @param エラーファイル名
+	 * @param 正規表現
 	 * @return 読み込み可否
 	 */
 	private static boolean readFile(String path, String fileName, Map<String, String> branchNames,
